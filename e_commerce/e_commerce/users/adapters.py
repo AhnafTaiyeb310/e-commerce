@@ -18,6 +18,8 @@ class AccountAdapter(DefaultAccountAdapter):
         return getattr(settings, "ACCOUNT_ALLOW_REGISTRATION", True)
 
     def get_email_confirmation_url(self, request, emailconfirmation):
+        """Generate verification URL for frontend"""
+        # Connects the link in Gmail to your Next.js verification page
         return f"{settings.FRONTEND_URL}/verify-email/{emailconfirmation.key}/"
 
 class SocialAccountAdapter(DefaultSocialAccountAdapter):

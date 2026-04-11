@@ -1,8 +1,7 @@
 from rest_framework import serializers
 from e_commerce.users.models import User
 from dj_rest_auth.registration.serializers import RegisterSerializer
-from rest_framework import serializers
-
+from allauth.account.models import EmailConfirmation, EmailConfirmationHMAC
 
 class UserSerializer(serializers.ModelSerializer[User]):
     class Meta:
@@ -27,4 +26,9 @@ class CustomRegisterSerializer(RegisterSerializer):
         user = super().save(request)
         user.name = self.validated_data.get('name', '')
         user.save()
-        return user    
+        return user
+
+
+class EmailVerificationSerializer(serializers.Serializer):
+    """Serializer for email verification"""
+    key = serializers.CharField(required=True)

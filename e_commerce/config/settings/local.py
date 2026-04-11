@@ -92,3 +92,6 @@ CSRF_TRUSTED_ORIGINS = [
 ]
 
 FRONTEND_URL = "http://localhost:3000"
+
+ACCOUNT_EMAIL_CONFIRMATION_ANONYMOUS_REDIRECT_URL = "http://localhost:3000/verify-email"
+

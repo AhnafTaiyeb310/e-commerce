@@ -330,6 +330,8 @@ SOCIALACCOUNT_ADAPTER = "e_commerce.users.adapters.SocialAccountAdapter"
 # https://docs.allauth.org/en/latest/socialaccount/configuration.html
 SOCIALACCOUNT_FORMS = {"signup": "e_commerce.users.forms.UserSocialSignupForm"}
 
+ACCOUNT_EMAIL_SUBJECT_PREFIX = "E-Commerce Verification"
+
 
 # django-rest-framework
 # -------------------------------------------------------------------------------
