@@ -3,12 +3,13 @@ from django.conf.urls.static import static
 from django.contrib import admin
 from django.contrib.staticfiles.urls import staticfiles_urlpatterns
 from django.urls import include
-from django.urls import path
+from django.urls import path, re_path
 from django.views import defaults as default_views
 from django.views.generic import TemplateView
 from drf_spectacular.views import SpectacularAPIView
 from drf_spectacular.views import SpectacularSwaggerView
 from rest_framework.authtoken.views import obtain_auth_token
+from dj_rest_auth.registration.views import VerifyEmailView
 
 urlpatterns = [
     path("", TemplateView.as_view(template_name="pages/home.html"), name="home"),
@@ -32,11 +33,30 @@ if settings.DEBUG:
     urlpatterns += staticfiles_urlpatterns()
 
 # API URLS
-urlpatterns += [
-    # API base url
+urlpatterns +=  [
+    # 1. The ACTUAL API endpoint your Next.js 'verifyEmailRequest' calls
+    path("api/auth/registration/verify-email/", VerifyEmailView.as_view(), name="rest_verify_email"),
+
+    # 2. A dummy route for 'allauth' internal reversing. 
+    # Since your Adapter handles the URL generation for the email, 
+    # this just needs to exist so Django doesn't throw a 'NoReverseMatch' error.
+    re_path(
+        r"^account-confirm-email/(?P<key>[-:\w]+)/$",
+        TemplateView.as_view(),
+        name="account_confirm_email",
+    ),
+
+    # 3. Include the rest of registration (registration/, password-reset/, etc.)
+    # NOTE: This MUST come after your manual 'verify-email/' path above.
+    path("api/auth/registration/", include("dj_rest_auth.registration.urls")),
+    
+    # 4. Auth and other API routes
+    path("api/auth/", include("dj_rest_auth.urls")),
     path("api/", include("config.api_router")),
-    # DRF auth token
-    path("api/auth-token/", obtain_auth_token, name="obtain_auth_token"),
+
+    path("api/auth/registration/", include("dj_rest_auth.registration.urls")),
+
+
     path("api/schema/", SpectacularAPIView.as_view(), name="api-schema"),
     path(
         "api/docs/",
@@ -64,7 +84,7 @@ if settings.DEBUG:
             default_views.page_not_found,
             kwargs={"exception": Exception("Page not Found")},
         ),
-        path("500/", default_views.server_error),
+        path("500/", default_views.server_error)
     ]
     if "debug_toolbar" in settings.INSTALLED_APPS:
         import debug_toolbar
