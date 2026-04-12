@@ -2,11 +2,11 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
 from django.contrib.staticfiles.urls import staticfiles_urlpatterns
-from django.urls import include, path, re_path
+from django.urls import include, path
 from django.views import defaults as default_views
 from django.views.generic import TemplateView
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
-from e_commerce.users.api.views import VerifyEmailAPIView
+from e_commerce.users.api.views import VerifyEmailAPIView, GoogleLogin
 
 urlpatterns = [
     path("", TemplateView.as_view(template_name="pages/home.html"), name="home"),
@@ -21,7 +21,7 @@ urlpatterns = [
     path("users/", include("e_commerce.users.urls", namespace="users")),
     path("accounts/", include("allauth.urls")),
     # Your stuff: custom urls includes go here
-    # ...
+    
     # Media files
     *static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT),
 ]
@@ -34,10 +34,11 @@ urlpatterns += [
     # API base url
     path("api/", include("config.api_router")),
     
-    # 1. Custom Verification Endpoint
+    # 1. Custom Verification and Social Login Endpoints
     path("api/auth/registration/verify-email/", 
          VerifyEmailAPIView.as_view(), 
          name="rest_verify_email"),
+    path("api/auth/google/", GoogleLogin.as_view(), name="google_login"),
 
     # 2. Dummy route for allauth internal reversing
     path("api/auth/registration/account-confirm-email/<str:key>/",
@@ -79,6 +80,7 @@ if settings.DEBUG:
         ),
         path("500/", default_views.server_error)
     ]
+    
     if "debug_toolbar" in settings.INSTALLED_APPS:
         import debug_toolbar
 

@@ -1,3 +1,4 @@
+import LogoutButton from "@/components/auth/LogoutButton";
 import Image from "next/image";
 
 export default function Home() {
@@ -58,6 +59,7 @@ export default function Home() {
           >
             Documentation
           </a>
+          <LogoutButton />
         </div>
       </main>
     </div>

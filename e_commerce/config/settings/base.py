@@ -78,6 +78,7 @@ THIRD_PARTY_APPS = [
     "allauth.account",
     "allauth.mfa",
     "allauth.socialaccount",
+    "allauth.socialaccount.providers.google",
     "django_celery_beat",
     "rest_framework",
     "rest_framework.authtoken",
@@ -386,3 +387,34 @@ OLD_PASSWORD_FIELD_ENABLED = True
 LOGOUT_ON_PASSWORD_CHANGE = False
 
 ACCOUNT_CONFIRM_EMAIL_ON_GET = False
+
+# ===== SOCIAL ACCOUNT CONFIGURATION =====
+SOCIALACCOUNT_PROVIDERS = {
+    "google": {
+        "APPS": [
+            {
+                "client_id": env("GOOGLE_CLIENT_ID", default="your-client-id-here"),
+                "secret": env("GOOGLE_CLIENT_SECRET", default="your-secret-here"),
+                "settings": {
+                        "scope": [
+                            "profile",
+                            "email",
+                        ],
+                        "auth_params": {
+                            "access_type": "online",
+                        },
+                    },
+                },
+            ],
+            "VERIFIED_EMAIL": True,
+        }
+    }
+
+# Skip email verification for social logins (they're pre-verified by Google)
+SOCIALACCOUNT_AUTO_SIGNUP = True
+SOCIALACCOUNT_EMAIL_VERIFICATION = "none"  # Google email is verified
+
+# Frontend URL after successful social login
+SOCIALACCOUNT_QUERY_EMAIL = True
+
+SECURE_CROSS_ORIGIN_OPENER_POLICY = None

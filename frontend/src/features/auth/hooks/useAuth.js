@@ -1,3 +1,5 @@
+"use client";
+
 import { useAuthStore } from "@/store/useAuthStore";
 import { useQuery } from "@tanstack/react-query";
 import { getMe } from "@/features/auth/api/authApi";

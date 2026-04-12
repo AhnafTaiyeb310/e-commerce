@@ -1,6 +1,7 @@
 'use client'
 import { useLogin } from "@/features/auth/hooks/useLogin";
 import { useState } from "react";
+import GoogleSignInButton from "@/components/auth/GoogleSignInButton";
 
 function page() {
     const [form, setForm] = useState({
@@ -34,6 +35,9 @@ function page() {
         onChange={handleChange}/>
         <button type="submit">submit</button>
       </form>
+      <div className="mt-4 border-t pt-4">
+        <GoogleSignInButton />
+      </div>
     </div>
   );
 }
