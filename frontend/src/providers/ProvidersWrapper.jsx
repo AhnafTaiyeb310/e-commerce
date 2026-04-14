@@ -4,6 +4,7 @@ import { useState } from "react";
 import AuthProvider from "./AuthProvider";
 import { Toaster } from "sonner";
 import { GoogleOAuthProvider } from '@react-oauth/google';
+import ThemeProvider from "./ThemeProvider";
 
 export default function ProvidersWrapper({ children }) {
   const [queryClient] = useState(() => {
@@ -20,10 +21,12 @@ export default function ProvidersWrapper({ children }) {
   return (
     <QueryClientProvider client={queryClient}>
       <GoogleOAuthProvider clientId={process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID}>
-        <AuthProvider>
-          {children}
-          <Toaster position="top-right" richColors />
-        </AuthProvider>
+        <ThemeProvider>
+          <AuthProvider>
+            {children}
+            <Toaster position="top-right" richColors />
+          </AuthProvider>
+        </ThemeProvider>
       </GoogleOAuthProvider>
     </QueryClientProvider>
   );

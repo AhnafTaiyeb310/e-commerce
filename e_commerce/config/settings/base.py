@@ -70,6 +70,7 @@ DJANGO_APPS = [
     # "django.contrib.humanize", # Handy template tags
     "django.contrib.admin",
     "django.forms",
+    
 ]
 THIRD_PARTY_APPS = [
     "crispy_forms",
@@ -87,11 +88,14 @@ THIRD_PARTY_APPS = [
     "dj_rest_auth",
     "dj_rest_auth.registration",
     "rest_framework_simplejwt",
+    'django_filters',
 ]
 
 LOCAL_APPS = [
     "e_commerce.users",
-    # Your stuff: custom apps go here
+    'e_commerce.store',
+    'e_commerce.tags',
+    'e_commerce.likes',
 ]
 # https://docs.djangoproject.com/en/dev/ref/settings/#installed-apps
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS

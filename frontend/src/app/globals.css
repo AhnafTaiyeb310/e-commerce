@@ -1,0 +1,26 @@
+@import "tailwindcss";
+
+/* Tell Tailwind to scan Preline's source files for classes */
+@source "../../node_modules/preline/dist/*.js";
+
+/* Import Preline's custom variants (required for v4) */
+@import "../../node_modules/preline/variants.css";
+
+/* Enable class-based dark mode for Tailwind v4 */
+@custom-variant dark (&:is(.dark, .dark *));
+
+@theme {
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
+
+@layer base {
+  *, ::after, ::before {
+    border-color: var(--color-gray-200);
+  }
+}
+
+/* Custom styles for e-commerce template */
+.hs-carousel-slide {
+  @apply flex justify-center h-full p-6;
+}
