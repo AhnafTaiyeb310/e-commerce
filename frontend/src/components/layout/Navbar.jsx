@@ -42,7 +42,7 @@ export default function Navbar() {
       </div>
 
       {/* Main Navbar */}
-      <header className="sticky top-0 z-50 w-full bg-white border-b border-gray-200 dark:bg-neutral-900 dark:border-neutral-800">
+      <header className="sticky top-0 z-50 w-full bg-white  dark:bg-neutral-900">
         <nav className="max-w-[85rem] mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between py-3">
             <div className="flex-none">

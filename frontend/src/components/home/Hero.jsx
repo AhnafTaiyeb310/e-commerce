@@ -5,7 +5,7 @@ import Link from "next/link";
 
 export default function Hero() {
   return (
-    <div className="max-w-[90rem] mx-auto px-4 sm:px-6 lg:px-8 py-6">
+    <div className="w-full mx-auto px-4 sm:px-6 lg:px-8 ">
       <div data-hs-carousel='{
           "loadingClasses": "opacity-0",
           "isAutoPlay": true

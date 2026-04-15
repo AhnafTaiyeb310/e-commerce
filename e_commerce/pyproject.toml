@@ -45,6 +45,8 @@ dependencies = [
   "google-auth-httplib2==0.2.0",
   "drf-nested-routers>=0.95.0",
   "django-filter>=25.2",
+  "cloudinary>=1.44.1",
+  "django-cloudinary-storage>=0.3.0",
 ]
 
 [dependency-groups]

@@ -33,15 +33,42 @@ class CategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = Category
         fields = [
-            'id', 'name', 'slug', 'description', 'image',
+            'id', 'name', 'slug', 'description', 'image_url',
             'parent', 'position', 'is_active', 'children', 'product_count',
         ]
         read_only_fields = ['slug']
+
+    image_url = serializers.SerializerMethodField()
+
+    def get_image_url(self, obj):
+        if obj.image:
+            return obj.image.url
+        return None
 
     def get_children(self, obj):
         """Return direct children (one level deep for list views)."""
         children = obj.children.filter(is_active=True).order_by('position', 'name')
         return SimpleCategorySerializer(children, many=True).data
+
+    def create(self, validated_data):
+        import os, uuid
+        from django.conf import settings
+        from .tasks import upload_image_to_cloudinary_task
+
+        image_file = validated_data.pop('image', None)
+        instance = Category.objects.create(upload_status='P', **validated_data)
+
+        if image_file:
+            tmp_dir = os.path.join(settings.BASE_DIR, 'tmp_uploads')
+            os.makedirs(tmp_dir, exist_ok=True)
+            ext = os.path.splitext(image_file.name)[1]
+            tmp_path = os.path.join(tmp_dir, f"{uuid.uuid4()}{ext}")
+            with open(tmp_path, 'wb') as f:
+                for chunk in image_file.chunks():
+                    f.write(chunk)
+            upload_image_to_cloudinary_task.delay('store', 'Category', instance.id, 'image', tmp_path)
+
+        return instance
 
 
 class SimpleCategorySerializer(serializers.ModelSerializer):
@@ -59,8 +86,35 @@ class CollectionSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Collection
-        fields = ['id', 'title', 'slug', 'description', 'image', 'is_active', 'products_count']
+        fields = ['id', 'title', 'slug', 'description', 'image_url', 'is_active', 'products_count']
         read_only_fields = ['slug']
+
+    image_url = serializers.SerializerMethodField()
+
+    def get_image_url(self, obj):
+        if obj.image:
+            return obj.image.url
+        return None
+
+    def create(self, validated_data):
+        import os, uuid
+        from django.conf import settings
+        from .tasks import upload_image_to_cloudinary_task
+
+        image_file = validated_data.pop('image', None)
+        instance = Collection.objects.create(upload_status='P', **validated_data)
+
+        if image_file:
+            tmp_dir = os.path.join(settings.BASE_DIR, 'tmp_uploads')
+            os.makedirs(tmp_dir, exist_ok=True)
+            ext = os.path.splitext(image_file.name)[1]
+            tmp_path = os.path.join(tmp_dir, f"{uuid.uuid4()}{ext}")
+            with open(tmp_path, 'wb') as f:
+                for chunk in image_file.chunks():
+                    f.write(chunk)
+            upload_image_to_cloudinary_task.delay('store', 'Collection', instance.id, 'image', tmp_path)
+
+        return instance
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -101,12 +155,54 @@ class ProductTypeSerializer(serializers.ModelSerializer):
 
 class ProductImageSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
+        import os
+        import uuid
+        from django.conf import settings
+        from .tasks import upload_image_to_cloudinary_task
+
         product_id = self.context['product_id']
-        return ProductImage.objects.create(product_id=product_id, **validated_data)
+        image_file = validated_data.pop('image', None)
+        
+        # Create empty/placeholder ProductImage with PENDING status
+        instance = ProductImage.objects.create(
+            product_id=product_id, 
+            upload_status='P', 
+            **validated_data
+        )
+
+        if image_file:
+            tmp_dir = os.path.join(settings.BASE_DIR, 'tmp_uploads')
+            os.makedirs(tmp_dir, exist_ok=True)
+            
+            ext = os.path.splitext(image_file.name)[1]
+            tmp_path = os.path.join(tmp_dir, f"{uuid.uuid4()}{ext}")
+            
+            with open(tmp_path, 'wb') as f:
+                for chunk in image_file.chunks():
+                    f.write(chunk)
+            
+            # Fire Async Celery Task
+            upload_image_to_cloudinary_task.delay(
+                app_label='store',
+                model_name='ProductImage',
+                object_id=instance.id,
+                field_name='image',
+                temp_file_path=tmp_path
+            )
+
+        return instance
 
     class Meta:
         model = ProductImage
-        fields = ['id', 'image', 'alt_text', 'position', 'is_primary', 'variant']
+        fields = ['id', 'image', 'image_url', 'alt_text', 'position', 'is_primary', 'variant', 'upload_status']
+
+    image_url = serializers.SerializerMethodField()
+    image = serializers.ImageField(write_only=True, required=False)
+
+    def get_image_url(self, obj):
+        if obj.image:
+            return obj.image.url
+        return None
 
 
 # ─────────────────────────────────────────────────────────────────────────────

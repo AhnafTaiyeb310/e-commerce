@@ -17,8 +17,8 @@ from rest_framework.permissions import AllowAny, IsAdminUser, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet, GenericViewSet
 
-from store.permissions import IsAdminOrReadOnly, ViewCustomerHistoryPermission
-from store.pagination import DefaultPagination
+from .permissions import IsAdminOrReadOnly, ViewCustomerHistoryPermission
+from .pagination import DefaultPagination
 
 from .filters import ProductFilter, ProductVariantFilter
 from .models import (

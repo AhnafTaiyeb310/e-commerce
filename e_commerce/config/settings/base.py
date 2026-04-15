@@ -4,12 +4,15 @@
 import ssl
 from pathlib import Path
 
+import cloudinary
 import environ
+import os
 
 BASE_DIR = Path(__file__).resolve(strict=True).parent.parent.parent
 # e_commerce/
 APPS_DIR = BASE_DIR / "e_commerce"
 env = environ.Env()
+environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
 
 READ_DOT_ENV_FILE = env.bool("DJANGO_READ_DOT_ENV_FILE", default=False)
 if READ_DOT_ENV_FILE:
@@ -89,6 +92,8 @@ THIRD_PARTY_APPS = [
     "dj_rest_auth.registration",
     "rest_framework_simplejwt",
     'django_filters',
+    'cloudinary_storage',
+    'cloudinary',
 ]
 
 LOCAL_APPS = [
@@ -176,6 +181,35 @@ STATICFILES_FINDERS = [
 MEDIA_ROOT = str(APPS_DIR / "media")
 # https://docs.djangoproject.com/en/dev/ref/settings/#media-url
 MEDIA_URL = "/media/"
+
+CLOUDINARY_STORAGE = {
+    'CLOUD_NAME': env("CLOUDINARY_CLOUD_NAME", default="none"),
+    'API_KEY': env("CLOUDINARY_API_KEY", default="none"),
+    'API_SECRET': env("CLOUDINARY_API_SECRET", default="none"),
+}
+print(f"DEBUG: Cloudinary Key is -> {CLOUDINARY_STORAGE['API_KEY']}")
+if CLOUDINARY_STORAGE['CLOUD_NAME'] and CLOUDINARY_STORAGE['CLOUD_NAME'] != "none":
+    # Explicitly configure the cloudinary library for CloudinaryField support
+    # Note: Cloudinary SDK expects lowercase keys
+    cloudinary.config(
+        cloud_name=CLOUDINARY_STORAGE['CLOUD_NAME'],
+        api_key=CLOUDINARY_STORAGE['API_KEY'],
+        api_secret=CLOUDINARY_STORAGE['API_SECRET'],
+        secure=True
+    )
+    
+    # Fallback to older setting format just in case, but rely on STORAGES for modern Django
+    DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
+    
+    # Modern Django 4.2+ Storage config
+    STORAGES = {
+        "default": {
+            "BACKEND": "cloudinary_storage.storage.MediaCloudinaryStorage",
+        },
+        "staticfiles": {
+            "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage" if not DEBUG else "django.contrib.staticfiles.storage.StaticFilesStorage",
+        },
+    }
 
 # TEMPLATES
 # ------------------------------------------------------------------------------

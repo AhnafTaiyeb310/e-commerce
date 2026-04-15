@@ -195,7 +195,7 @@ class ProductAdmin(admin.ModelAdmin):
     def inventory_status(self, product):
         total = sum(v.inventory for v in product.variants.all())
         if total == 0:
-            return format_html('<span style="color:red;font-weight:bold;">Out of Stock</span>')
+            return format_html('<span style="color:red;font-weight:bold;">{}</span>', "Out of Stock")
         if total < 10:
             return format_html('<span style="color:orange;font-weight:bold;">Low ({})</span>', total)
         return format_html('<span style="color:green;">{}</span>', total)

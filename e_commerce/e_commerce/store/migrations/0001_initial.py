@@ -2,7 +2,7 @@
 
 import django.core.validators
 import django.db.models.deletion
-import store.validators
+import e_commerce.store.validators
 import uuid
 from decimal import Decimal
 from django.conf import settings
@@ -218,7 +218,7 @@ class Migration(migrations.Migration):
             name='ProductImage',
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('image', models.ImageField(upload_to='store/images', validators=[store.validators.validate_file_size])),
+                ('image', models.ImageField(upload_to='store/images', validators=[e_commerce.store.validators.validate_file_size])),
                 ('alt_text', models.CharField(blank=True, max_length=255)),
                 ('position', models.PositiveIntegerField(default=0)),
                 ('is_primary', models.BooleanField(default=False)),
