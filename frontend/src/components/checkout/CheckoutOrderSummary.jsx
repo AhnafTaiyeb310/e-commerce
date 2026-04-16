@@ -3,14 +3,15 @@
 import React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { TRENDING_PRODUCTS } from "@/constants/mockData";
+import { useCart } from "@/features/cart/hooks/useCart";
+import { DEFAULT_PLACEHOLDER } from "@/lib/constants";
 
 export default function CheckoutOrderSummary({ subtotal, shipping, tax, buttonLabel = "Continue" }) {
   const total = subtotal + shipping + tax;
   const router = useRouter();
   
-  // Use a subset of mock products for the summary
-  const items = TRENDING_PRODUCTS.slice(0, 3);
+  const { cart } = useCart();
+  const items = cart?.items || [];
 
   return (
     <div className="bg-gray-50 rounded-xl p-4 sm:p-6 dark:bg-neutral-800">
@@ -25,21 +26,24 @@ export default function CheckoutOrderSummary({ subtotal, shipping, tax, buttonLa
 
       {/* Items List */}
       <div className="space-y-4 mb-6">
-        {items.map((item) => (
-          <div key={item.id} className="flex gap-x-4">
-            <div className="size-16 flex-shrink-0">
-              <img className="size-full rounded-lg object-cover" src={item.image} alt={item.name} />
+        {items.slice(0, 3).map((item) => {
+           const product = item.product || {};
+           const image = product.images?.find(i => i.is_primary)?.image_url || product.images?.[0]?.image_url || DEFAULT_PLACEHOLDER;
+           return (
+            <div key={item.id} className="flex gap-x-4">
+              <div className="size-16 flex-shrink-0">
+                <img className="size-full rounded-lg object-cover" src={image} alt={product.title} />
+              </div>
+              <div className="flex-1">
+                <h4 className="text-sm font-semibold text-gray-800 dark:text-neutral-200">{product.title}</h4>
+                <p className="text-xs text-gray-500 dark:text-neutral-500">Qty: {item.quantity}</p>
+              </div>
+              <div className="text-end">
+                <p className="text-sm font-bold text-gray-800 dark:text-neutral-200">${item.total_price || product.base_price}</p>
+              </div>
             </div>
-            <div className="flex-1">
-              <h4 className="text-sm font-semibold text-gray-800 dark:text-neutral-200">{item.name}</h4>
-              <p className="text-xs text-gray-500 dark:text-neutral-500">Color: Light Grey | Size: M</p>
-              <p className="text-xs text-gray-500 dark:text-neutral-500">Qty: 1</p>
-            </div>
-            <div className="text-end">
-              <p className="text-sm font-bold text-gray-800 dark:text-neutral-200">${item.price}</p>
-            </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
 
       <div className="space-y-3">

@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useAuth } from "@/features/auth/hooks/useAuth";
+import { useCart } from "@/features/cart/hooks/useCart";
 import LogoutButton from "@/components/auth/LogoutButton";
 import ThemeToggle from "./ThemeToggle";
 import UserDropdown from "./UserDropdown";
@@ -11,6 +12,7 @@ import { useQuery } from "@tanstack/react-query";
 
 export default function Navbar() {
   const { user, isAuthenticated } = useAuth();
+  const { totalItems } = useCart();
 
   const { data, isLoading } = useQuery({
     queryKey: ["categories"],
@@ -89,10 +91,14 @@ export default function Navbar() {
 
               <ThemeToggle />
 
-              <button type="button" className="relative size-9 flex justify-center items-center text-gray-800 hover:bg-gray-100 rounded-full dark:text-neutral-200 dark:hover:bg-neutral-800">
+              <Link href="/cart" className="relative size-9 flex justify-center items-center text-gray-800 hover:bg-gray-100 rounded-full dark:text-neutral-200 dark:hover:bg-neutral-800">
                 <svg className="size-4" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
-                <span className="absolute top-1 end-1 size-4 bg-red-500 text-white text-[10px] font-medium flex justify-center items-center rounded-full">3</span>
-              </button>
+                {totalItems > 0 && (
+                  <span className="absolute top-1 end-1 size-4 bg-red-500 text-white text-[10px] font-medium flex justify-center items-center rounded-full">
+                    {totalItems > 99 ? '99+' : totalItems}
+                  </span>
+                )}
+              </Link>
             </div>
           </div>
         </nav>

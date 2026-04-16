@@ -1,7 +1,36 @@
-import { FEATURED_PRODUCTS } from "@/constants/mockData";
+"use client";
+
+import { useQuery } from "@tanstack/react-query";
+import { fetchProducts } from "@/lib/api";
 import ProductCard from "./ProductCard";
+import { DEFAULT_PLACEHOLDER } from "@/lib/constants";
 
 export default function ProductGrid() {
+  const { data, isLoading } = useQuery({
+    queryKey: ["featured_products"],
+    queryFn: () => fetchProducts({ is_featured: true, page_size: 8 }),
+  });
+
+  const products = data?.results || data || [];
+
+  const mappedProducts = products.map((p) => ({
+    id: p.id,
+    name: p.title,
+    category: p.category?.name || p.category_name || "General",
+    price: parseFloat(p.base_price).toFixed(0),
+    image: p.primary_image || p.images?.[0]?.image_url || DEFAULT_PLACEHOLDER,
+    badge: p.is_featured ? "Featured" : null,
+    slug: p.slug
+  }));
+
+  if (isLoading) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 flex justify-center">
+        <div className="animate-spin inline-block size-8 border-[3px] border-current border-t-transparent text-blue-600 rounded-full" role="status" aria-label="loading"></div>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
       <div className="flex justify-between items-center mb-10">
@@ -13,7 +42,7 @@ export default function ProductGrid() {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        {FEATURED_PRODUCTS.map((product) => (
+        {mappedProducts.map((product) => (
           <ProductCard key={product.id} product={product} />
         ))}
       </div>

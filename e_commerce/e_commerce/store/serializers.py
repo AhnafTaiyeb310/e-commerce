@@ -495,7 +495,22 @@ class AddressSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         customer = Customer.objects.get(user_id=self.context['user_id'])
+        is_default = validated_data.get('is_default', False)
+        
+        if is_default:
+            # Unset other default addresses for this customer
+            Address.objects.filter(customer=customer, is_default=True).update(is_default=False)
+            
         return Address.objects.create(customer=customer, **validated_data)
+
+    def update(self, instance, validated_data):
+        is_default = validated_data.get('is_default', instance.is_default)
+        
+        if is_default and not instance.is_default:
+            # Unset other default addresses for this customer
+            Address.objects.filter(customer=instance.customer, is_default=True).update(is_default=False)
+            
+        return super().update(instance, validated_data)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -528,12 +543,13 @@ class OrderItemSerializer(serializers.ModelSerializer):
 
 class OrderSerializer(serializers.ModelSerializer):
     items = OrderItemSerializer(many=True)
+    shipping_address = AddressSerializer()
 
     class Meta:
         model = Order
         fields = [
             'id', 'customer', 'placed_at', 'payment_status',
-            'fulfillment_status', 'items',
+            'fulfillment_status', 'items', 'shipping_address'
         ]
 
 
@@ -545,6 +561,7 @@ class UpdateOrderSerializer(serializers.ModelSerializer):
 
 class CreateOrderSerializer(serializers.Serializer):
     cart_id = serializers.UUIDField()
+    shipping_address_id = serializers.IntegerField()
 
     def validate_cart_id(self, cart_id):
         if not Cart.objects.filter(pk=cart_id).exists():
@@ -553,12 +570,23 @@ class CreateOrderSerializer(serializers.Serializer):
             raise serializers.ValidationError('The cart is empty.')
         return cart_id
 
+    def validate_shipping_address_id(self, value):
+        if not Address.objects.filter(pk=value).exists():
+            raise serializers.ValidationError('Invalid address ID.')
+        return value
+
     def save(self, **kwargs):
         with transaction.atomic():
             cart_id = self.validated_data['cart_id']
+            shipping_address_id = self.validated_data['shipping_address_id']
 
             customer = Customer.objects.get(user_id=self.context['user_id'])
-            order = Order.objects.create(customer=customer)
+            shipping_address = Address.objects.get(pk=shipping_address_id, customer=customer)
+            
+            order = Order.objects.create(
+                customer=customer,
+                shipping_address=shipping_address
+            )
 
             cart_items = (
                 CartItem.objects
@@ -570,7 +598,9 @@ class CreateOrderSerializer(serializers.Serializer):
             order_items = []
             for item in cart_items:
                 variant = item.variant
-                price = variant.price if variant else item.product.base_price
+                # Use variant price if it exists, otherwise base_price. 
+                # This ensures the backend calculates the price.
+                price = variant.price if variant and variant.price else item.product.base_price
 
                 # Build a snapshot of the variant attributes at purchase time
                 snapshot = {}

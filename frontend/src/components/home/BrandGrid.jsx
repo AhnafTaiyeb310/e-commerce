@@ -1,4 +1,11 @@
-import { BRANDS } from "@/constants/mockData";
+const BRANDS = [
+  { id: 1, name: "Nike", logo: "https://upload.wikimedia.org/wikipedia/commons/a/a6/Logo_NIKE.svg" },
+  { id: 2, name: "Adidas", logo: "https://upload.wikimedia.org/wikipedia/commons/2/20/Adidas_Logo.svg" },
+  { id: 3, name: "Puma", logo: "https://upload.wikimedia.org/wikipedia/commons/8/88/Puma_logo.svg" },
+  { id: 4, name: "Reebok", logo: "https://upload.wikimedia.org/wikipedia/commons/5/53/Reebok_2019_logo.svg" },
+  { id: 5, name: "Under Armour", logo: "https://upload.wikimedia.org/wikipedia/commons/4/44/Under_armour_logo.svg" },
+  { id: 6, name: "Vans", logo: "https://upload.wikimedia.org/wikipedia/commons/9/9d/Vans-logo.svg" },
+];
 
 export default function BrandGrid() {
   return (

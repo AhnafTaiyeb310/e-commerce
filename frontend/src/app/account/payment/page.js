@@ -39,37 +39,23 @@ export default function PaymentPage() {
                 <h2 className="text-xl font-bold text-gray-800 dark:text-neutral-200 mb-1">Payment</h2>
                 <p className="text-sm text-gray-500 dark:text-neutral-500">Manage your payment methods.</p>
               </div>
-              <button type="button" className="py-2.5 px-4 inline-flex justify-center items-center gap-x-2 text-sm font-medium rounded-lg border border-transparent bg-blue-600 text-white hover:bg-blue-700 focus:outline-none focus:bg-blue-700 transition-all">
-                <svg className="shrink-0 size-4" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
-                Add payment method
-              </button>
             </div>
 
-            <div className="grid sm:grid-cols-2 gap-4 sm:gap-6">
-              {/* Payment Method 1 */}
-              <div className="flex flex-col border border-gray-200 rounded-xl p-5 dark:border-neutral-700 relative">
-                <span className="absolute top-0 right-0 rounded-bl-xl rounded-tr-xl bg-gray-100 dark:bg-neutral-800 px-3 py-1 text-xs font-semibold text-gray-800 dark:text-neutral-200">Default</span>
-                
-                <h3 className="text-base font-semibold text-gray-800 dark:text-neutral-200 mb-2">James Collins</h3>
-                
-                <div className="flex items-center gap-x-3 mb-6">
-                  {/* Mastercard Icon */}
-                  <div className="bg-white border text-center border-gray-200 rounded-sm px-1.5 py-1 dark:bg-white dark:border-white">
-                    <svg className="w-8 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 36 24"><path fill="#EB001B" d="M15 24V0h16v24z"/><path fill="#F79E1B" d="M36 24V0H20v24z"/><path fill="#FF5F00" d="M22.5 12a7.5 7.5 0 1 1-15 0 7.5 7.5 0 0 1 15 0z"/><path fill="#F79E1B" d="M31.5 12a7.5 7.5 0 1 1-15 0 7.5 7.5 0 0 1 15 0z"/><path fill="#FF5F00" d="M22.5 12a7.5 7.5 0 0 1-3.666 6.353 7.5 7.5 0 0 0 0-12.705A7.5 7.5 0 0 1 22.5 12z"/></svg>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-800 dark:text-neutral-200">MasterCard •••• 4242</p>
-                    <p className="text-xs text-red-500">Expired on 07/24</p>
-                  </div>
-                </div>
-                
-                <div className="mt-auto flex flex-wrap gap-x-3 gap-y-2 pt-4 border-t border-gray-100 dark:border-neutral-800">
-                  <button type="button" className="text-sm font-medium text-blue-600 hover:text-blue-800 dark:text-blue-500 dark:hover:text-blue-400">Edit</button>
-                  <span className="text-gray-300 dark:text-neutral-700">|</span>
-                  <button type="button" className="text-sm font-medium text-red-600 hover:text-red-800 dark:text-red-500 dark:hover:text-red-400">Remove</button>
-                </div>
+            <div className="p-8 text-center border border-dashed border-gray-200 rounded-xl dark:border-neutral-700">
+              <div className="size-16 bg-blue-50 border border-blue-100 rounded-full flex items-center justify-center mx-auto mb-4 dark:bg-blue-900/20 dark:border-blue-800">
+                <svg className="size-8 text-blue-600 dark:text-blue-500" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10"/></svg>
               </div>
-
+              <h3 className="text-lg font-bold text-gray-800 dark:text-neutral-200 mb-1">Online Payment Coming Soon</h3>
+              <p className="text-sm text-gray-500 dark:text-neutral-500 max-w-sm mx-auto mb-6">
+                We are currently refining our online payment systems to provide you with the most secure experience. For now, you can use <b>Cash on Delivery</b> for all your orders.
+              </p>
+              <div className="inline-flex items-center gap-x-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg">
+                <span className="relative flex size-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full size-2 bg-blue-500"></span>
+                </span>
+                Launching Shortly
+              </div>
             </div>
           </div>
         </div>
