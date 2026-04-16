@@ -1,15 +1,21 @@
 import Link from "next/link";
 import React from "react";
+import { DEFAULT_PLACEHOLDER } from "@/lib/constants";
 
 export default function ProductCard({ product }) {
+  const defaultImage = DEFAULT_PLACEHOLDER;
+
   return (
     <div className="group flex flex-col focus:outline-none">
       <div className="relative overflow-hidden rounded-xl bg-gray-100 dark:bg-neutral-800">
-        <img
-          className="group-hover:scale-105 transition-transform duration-500 ease-in-out w-full h-[300px] sm:h-[400px] object-cover"
-          src={product.image}
-          alt={product.name}
-        />
+        <Link href={`/product/${product.id}`} className="block">
+          <img
+            className="group-hover:scale-105 transition-transform duration-500 ease-in-out w-full h-[300px] sm:h-[400px] object-cover"
+            src={product.image || defaultImage}
+            alt={product.name}
+            onError={(e) => { e.target.src = defaultImage; }}
+          />
+        </Link>
         
         {/* Badges/Actions */}
         {product.badge && (
@@ -29,9 +35,9 @@ export default function ProductCard({ product }) {
         
         {/* Quick View Button at bottom of image overlay */}
         <div className="absolute bottom-0 inset-x-0 p-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-          <button type="button" className="w-full py-2 px-3 inline-flex justify-center items-center gap-x-2 text-sm font-medium rounded-lg bg-white/90 text-gray-800 shadow-sm hover:bg-white focus:outline-none focus:bg-white dark:bg-neutral-900/90 dark:text-neutral-200 dark:hover:bg-neutral-900">
+          <Link href={`/product/${product.id}`} className="w-full py-2 px-3 inline-flex justify-center items-center gap-x-2 text-sm font-medium rounded-lg bg-white/90 text-gray-800 shadow-sm hover:bg-white focus:outline-none focus:bg-white dark:bg-neutral-900/90 dark:text-neutral-200 dark:hover:bg-neutral-900">
             Quick view
-          </button>
+          </Link>
         </div>
       </div>
 

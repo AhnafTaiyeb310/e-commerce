@@ -1,16 +1,20 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { DEFAULT_PLACEHOLDER } from "@/lib/constants";
 
 export default function ProductGallery({ product }) {
-  // Use product image for all thumbnails to simulate a gallery
   const [activeImage, setActiveImage] = useState(product?.image);
-  const gallery = [
-    product?.image,
-    "https://images.unsplash.com/photo-1595950653106-6c9ebd614d3a?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
-    "https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
-    "https://images.unsplash.com/photo-1578587018452-892bacefd3f2?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80"
-  ];
+
+  // Use real images from backend if available, otherwise just use the primary one
+  const galleryImages = (product?.images && product.images.length > 0) 
+                         ? product.images 
+                         : [product?.image || DEFAULT_PLACEHOLDER];
+
+  // Sync active image when product changes
+  useEffect(() => {
+     setActiveImage(product?.image);
+  }, [product]);
 
   if (!product) return null;
 
@@ -20,8 +24,8 @@ export default function ProductGallery({ product }) {
       <div className="relative w-full overflow-hidden rounded-xl bg-gray-100 dark:bg-neutral-800">
         <div className="aspect-w-1 aspect-h-1 sm:aspect-none sm:h-[600px] w-full relative">
            <img
-             className="w-full h-full object-cover rounded-xl"
-             src={activeImage || product.image}
+             className="w-full h-full object-cover sm:object-cover"
+             src={activeImage || product.image || DEFAULT_PLACEHOLDER}
              alt={product.name}
            />
            {/* Wishlist Floating Button */}
@@ -34,17 +38,19 @@ export default function ProductGallery({ product }) {
       </div>
 
       {/* Thumbnails */}
-      <div className="grid grid-cols-4 gap-4">
-        {gallery.map((img, idx) => (
-          <button 
-            key={idx} 
-            className={`cursor-pointer overflow-hidden rounded-lg bg-gray-100 dark:bg-neutral-800 aspect-square ${activeImage === img ? 'ring-2 ring-blue-600 dark:ring-blue-500' : 'hover:opacity-75 transition-opacity'}`}
-            onClick={() => setActiveImage(img)}
-          >
-            <img className="w-full h-full object-cover" src={img} alt={`Thumbnail ${idx + 1}`} />
-          </button>
-        ))}
-      </div>
+      {galleryImages.length > 1 && (
+        <div className="grid grid-cols-4 gap-4">
+          {galleryImages.map((img, idx) => (
+            <button 
+              key={idx} 
+              className={`cursor-pointer overflow-hidden rounded-lg bg-gray-100 dark:bg-neutral-800 aspect-square ${activeImage === img ? 'ring-2 ring-blue-600 dark:ring-blue-500' : 'hover:opacity-75 transition-opacity'}`}
+              onClick={() => setActiveImage(img)}
+            >
+              <img className="w-full h-full object-cover" src={img} alt={`Thumbnail ${idx + 1}`} />
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

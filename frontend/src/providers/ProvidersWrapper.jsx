@@ -11,7 +11,7 @@ export default function ProvidersWrapper({ children }) {
     return new QueryClient({
       defaultOptions: {
         queries: {
-          retry: 3,
+          retry: 1,
           refetchOnWindowFocus: false,
           staleTime: 5 * 60 * 1000,
         },

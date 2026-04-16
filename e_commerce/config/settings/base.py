@@ -148,6 +148,7 @@ AUTH_PASSWORD_VALIDATORS = [
 # ------------------------------------------------------------------------------
 # https://docs.djangoproject.com/en/dev/ref/settings/#middleware
 MIDDLEWARE = [
+    "django.middleware.gzip.GZipMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "corsheaders.middleware.CorsMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
@@ -159,6 +160,7 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "allauth.account.middleware.AccountMiddleware",
+    'e_commerce.middleware.QueryCountMiddleware',
 ]
 
 # STATIC
@@ -187,7 +189,6 @@ CLOUDINARY_STORAGE = {
     'API_KEY': env("CLOUDINARY_API_KEY", default="none"),
     'API_SECRET': env("CLOUDINARY_API_SECRET", default="none"),
 }
-print(f"DEBUG: Cloudinary Key is -> {CLOUDINARY_STORAGE['API_KEY']}")
 if CLOUDINARY_STORAGE['CLOUD_NAME'] and CLOUDINARY_STORAGE['CLOUD_NAME'] != "none":
     # Explicitly configure the cloudinary library for CloudinaryField support
     # Note: Cloudinary SDK expects lowercase keys

@@ -145,15 +145,15 @@ export default function ProductInfo({ product }) {
 
       {/* Description Snippet */}
       <div className="mb-8">
-        <p className="text-gray-600 dark:text-neutral-400 mb-4">
-          Sink into pure, simple comfort the moment you step in the door. The {product.name} has a pared-back design for those who love the beautiful yet understated things in life.
-        </p>
-        <ul className="space-y-3 ms-5 list-disc text-gray-600 dark:text-neutral-400 marker:text-gray-400">
-          <li>Iconic, understated design.</li>
-          <li>Premium breathable upper.</li>
-          <li>Contoured footbed for extra support.</li>
-          <li>Eco-friendly packaging.</li>
-        </ul>
+        {product.description ? (
+          <div className="text-gray-600 dark:text-neutral-400 mb-4 whitespace-pre-wrap">
+            {product.description}
+          </div>
+        ) : (
+          <p className="text-gray-600 dark:text-neutral-400 mb-4">
+            No description available for this product.
+          </p>
+        )}
       </div>
 
       {/* Accordion Details */}

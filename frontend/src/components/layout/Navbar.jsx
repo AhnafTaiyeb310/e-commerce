@@ -1,14 +1,25 @@
 "use client";
 
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import LogoutButton from "@/components/auth/LogoutButton";
-import { CATEGORIES } from "@/constants/mockData";
 import ThemeToggle from "./ThemeToggle";
 import UserDropdown from "./UserDropdown";
+import { fetchCategories } from "@/lib/api";
+import { useQuery } from "@tanstack/react-query";
 
 export default function Navbar() {
   const { user, isAuthenticated } = useAuth();
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["categories"],
+    queryFn: () => fetchCategories(),
+  });
+
+  const categories = (data?.results || data || [])
+    .filter(cat => cat.product_count > 0)
+    .slice(0, 5);
 
   return (
     <>
@@ -42,18 +53,25 @@ export default function Navbar() {
       </div>
 
       {/* Main Navbar */}
-      <header className="sticky top-0 z-50 w-full bg-white  dark:bg-neutral-900">
+      <header className="sticky top-0 z-50 w-full bg-white  dark:bg-neutral-900 shadow-sm">
         <nav className="max-w-[85rem] mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between py-3">
             <div className="flex-none">
-              <Link className="flex-none text-xl font-semibold dark:text-white uppercase tracking-wider" href="/" aria-label="Preline">
-                Preline
+              <Link className="flex-none text-xl font-bold dark:text-white uppercase tracking-wider" href="/" aria-label="Brand">
+                E-COMMERCE
               </Link>
             </div>
 
             <div className="hidden md:flex items-center gap-x-8">
-              {CATEGORIES.map((cat) => (
-                <Link key={cat.id} className="font-medium text-gray-800 hover:text-gray-600 dark:text-neutral-200 dark:hover:text-neutral-400" href={cat.link}>
+              <Link className="font-medium text-gray-800 hover:text-blue-600 dark:text-neutral-200 dark:hover:text-blue-500" href="/shop">
+                Shop
+              </Link>
+              {categories.map((cat) => (
+                <Link 
+                  key={cat.id} 
+                  className="font-medium text-gray-800 hover:text-blue-600 dark:text-neutral-200 dark:hover:text-blue-500" 
+                  href={`/shop?category=${cat.id}`}
+                >
                   {cat.name}
                 </Link>
               ))}

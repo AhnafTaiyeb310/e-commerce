@@ -5,6 +5,7 @@ from rest_framework import serializers
 
 from .signals.signals import order_created
 from .models import (
+    Address,
     AttributeType,
     AttributeValue,
     Cart,
@@ -46,8 +47,16 @@ class CategorySerializer(serializers.ModelSerializer):
         return None
 
     def get_children(self, obj):
-        """Return direct children (one level deep for list views)."""
-        children = obj.children.filter(is_active=True).order_by('position', 'name')
+        """Return direct children (one level deep for list views).
+
+        IMPORTANT: use .all() on the prefetch cache, then filter in Python.
+        Calling .filter() on the related manager bypasses prefetch_related
+        and fires a new DB query for every category (N+1).
+        """
+        children = sorted(
+            [c for c in obj.children.all() if c.is_active],
+            key=lambda c: (c.position, c.name),
+        )
         return SimpleCategorySerializer(children, many=True).data
 
     def create(self, validated_data):
@@ -295,6 +304,53 @@ class SimpleProductSerializer(serializers.ModelSerializer):
         fields = ['id', 'title', 'base_price', 'slug']
 
 
+class ProductListSerializer(serializers.ModelSerializer):
+    """
+    Lightweight serializer for product list/search endpoints.
+
+    Only includes the fields that list views (TrendingGrid, Shop page, Category
+    page, etc.) actually render. Avoids serializing the full product-type tree,
+    all variants, and all images that the full ProductSerializer includes.
+
+    When the frontend needs individual product detail it calls
+    /api/store/products/<id>/ which still uses the full ProductSerializer.
+    """
+    primary_image = serializers.SerializerMethodField()
+    category_name = serializers.CharField(source='category.name', read_only=True, default=None)
+    review_count = serializers.IntegerField(read_only=True)
+    average_rating = serializers.DecimalField(
+        max_digits=3, decimal_places=2, read_only=True
+    )
+    price_with_tax = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Product
+        fields = [
+            'id', 'title', 'slug', 'brand',
+            'base_price', 'price_with_tax',
+            'is_featured', 'is_active',
+            'primary_image',
+            'category_name',
+            'review_count', 'average_rating',
+        ]
+
+    def get_primary_image(self, obj):
+        """
+        Return only the URL of the first/primary image.
+        Avoids serializing every image with all its fields.
+        """
+        images = obj.images.all()
+        primary = next((img for img in images if img.is_primary), None)
+        if primary is None and images:
+            primary = images[0]
+        if primary and primary.image:
+            return primary.image.url
+        return None
+
+    def get_price_with_tax(self, product: Product):
+        return product.base_price * Decimal('1.1')
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # REVIEW
 # ─────────────────────────────────────────────────────────────────────────────
@@ -339,16 +395,25 @@ class CartSerializer(serializers.ModelSerializer):
     total_price = serializers.SerializerMethodField()
     item_count = serializers.SerializerMethodField()
 
+    def _get_items(self, cart):
+        """Return the prefetched items list — avoids calling .all() twice."""
+        # cart.items.all() uses the prefetch cache set up in CartViewSet;
+        # calling it twice (once per SerializerMethodField) is wasteful.
+        # Cache the result on the cart instance so both methods share it.
+        if not hasattr(cart, '_cached_items'):
+            cart._cached_items = list(cart.items.all())
+        return cart._cached_items
+
     def get_total_price(self, cart):
         return sum(
             item.quantity * (
                 item.variant.price if item.variant else item.product.base_price
             )
-            for item in cart.items.all()
+            for item in self._get_items(cart)
         )
 
     def get_item_count(self, cart):
-        return sum(item.quantity for item in cart.items.all())
+        return sum(item.quantity for item in self._get_items(cart))
 
     class Meta:
         model = Cart
@@ -414,6 +479,23 @@ class UpdateCartItemSerializer(serializers.ModelSerializer):
     class Meta:
         model = CartItem
         fields = ['quantity']
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ADDRESS
+# ─────────────────────────────────────────────────────────────────────────────
+
+class AddressSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Address
+        fields = [
+            'id', 'address_type', 'first_name', 'last_name',
+            'street', 'city', 'state', 'country', 'postal_code', 'phone', 'is_default'
+        ]
+
+    def create(self, validated_data):
+        customer = Customer.objects.get(user_id=self.context['user_id'])
+        return Address.objects.create(customer=customer, **validated_data)
 
 
 # ─────────────────────────────────────────────────────────────────────────────

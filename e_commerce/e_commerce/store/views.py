@@ -1,5 +1,9 @@
-from django.db.models import Count, Avg
+from django.core.cache import cache
+from django.db.models import Count, Avg, Prefetch
 from django.db.models.query import QuerySet
+from django.utils.decorators import method_decorator
+from django.views.decorators.cache import cache_page
+from django.views.decorators.vary import vary_on_headers
 from django.shortcuts import get_object_or_404
 
 from django_filters.rest_framework import DjangoFilterBackend
@@ -22,6 +26,7 @@ from .pagination import DefaultPagination
 
 from .filters import ProductFilter, ProductVariantFilter
 from .models import (
+    Address,
     AttributeType,
     AttributeValue,
     Cart,
@@ -39,6 +44,7 @@ from .models import (
 )
 from .serializers import (
     AddCartItemSerializer,
+    AddressSerializer,
     AttributeTypeSerializer,
     AttributeValueSerializer,
     CartItemSerializer,
@@ -49,6 +55,7 @@ from .serializers import (
     CustomerSerializer,
     OrderSerializer,
     ProductImageSerializer,
+    ProductListSerializer,
     ProductSerializer,
     ProductTypeSerializer,
     ProductVariantSerializer,
@@ -63,6 +70,12 @@ from .serializers import (
 # CATEGORY
 # ─────────────────────────────────────────────────────────────────────────────
 
+CATEGORY_CACHE_TTL = 5 * 60  # 5 minutes
+COLLECTION_CACHE_TTL = 5 * 60
+
+
+@method_decorator(cache_page(CATEGORY_CACHE_TTL, key_prefix="categories"), name="list")
+@method_decorator(vary_on_headers("Accept", "Accept-Language"), name="list")
 class CategoryViewSet(ModelViewSet):
     """
     Full CRUD for categories. Top-level categories are returned by default.
@@ -81,6 +94,22 @@ class CategoryViewSet(ModelViewSet):
         elif parent_id:
             qs = qs.filter(parent_id=parent_id)
         return qs.prefetch_related('children').order_by('position', 'name')
+
+    def _bust_cache(self):
+        """Invalidate all category list cache entries after any write."""
+        cache.delete_pattern("*categories*") if hasattr(cache, "delete_pattern") else cache.clear()
+
+    def perform_create(self, serializer):
+        super().perform_create(serializer)
+        self._bust_cache()
+
+    def perform_update(self, serializer):
+        super().perform_update(serializer)
+        self._bust_cache()
+
+    def perform_destroy(self, instance):
+        super().perform_destroy(instance)
+        self._bust_cache()
 
 
 class CategoryProductListView(generics.ListAPIView):
@@ -107,9 +136,12 @@ class CategoryProductListView(generics.ListAPIView):
             .filter(category__id__in=category_ids, is_active=True)
             .select_related('category', 'product_type', 'collection')
             .prefetch_related(
-                'images',
-                'variants__attribute_values__attribute_type',
-                'variants__images',
+                Prefetch(
+                    'images',
+                    queryset=ProductImage.objects.only(
+                        'id', 'product_id', 'image', 'is_primary', 'position'
+                    ),
+                ),
             )
             .annotate(
                 review_count=Count('reviews'),
@@ -117,6 +149,9 @@ class CategoryProductListView(generics.ListAPIView):
             )
             .order_by('-created_at')
         )
+
+    def get_serializer_class(self):
+        return ProductListSerializer
 
     def list(self, request, *args, **kwargs):
         category = get_object_or_404(
@@ -150,6 +185,8 @@ class CategoryProductListView(generics.ListAPIView):
 # COLLECTION
 # ─────────────────────────────────────────────────────────────────────────────
 
+@method_decorator(cache_page(COLLECTION_CACHE_TTL, key_prefix="collections"), name="list")
+@method_decorator(vary_on_headers("Accept", "Accept-Language"), name="list")
 class CollectionViewSet(ModelViewSet):
     queryset = Collection.objects.annotate(products_count=Count('products')).all()
     serializer_class = CollectionSerializer
@@ -157,13 +194,27 @@ class CollectionViewSet(ModelViewSet):
     filter_backends = [SearchFilter]
     search_fields = ['title']
 
+    def _bust_cache(self):
+        """Invalidate all collection list cache entries after any write."""
+        cache.delete_pattern("*collections*") if hasattr(cache, "delete_pattern") else cache.clear()
+
+    def perform_create(self, serializer):
+        super().perform_create(serializer)
+        self._bust_cache()
+
+    def perform_update(self, serializer):
+        super().perform_update(serializer)
+        self._bust_cache()
+
     def destroy(self, request, *args, **kwargs):
         if Product.objects.filter(collection_id=kwargs['pk']).exists():
             return Response(
                 {'error': 'Collection cannot be deleted because it includes one or more products.'},
                 status=status.HTTP_405_METHOD_NOT_ALLOWED,
             )
-        return super().destroy(request, *args, **kwargs)
+        result = super().destroy(request, *args, **kwargs)
+        self._bust_cache()
+        return result
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -227,21 +278,74 @@ class ProductViewSet(ModelViewSet):
     search_fields = ['title', 'description', 'brand']
     ordering_fields = ['base_price', 'created_at', 'title']
 
+    def get_serializer_class(self):
+        """
+        Use the slim ProductListSerializer for list/search endpoints.
+        The full ProductSerializer (with variants, product type tree, etc.) is
+        reserved for retrieve and write operations where all fields are needed.
+        """
+        if self.action == 'list':
+            return ProductListSerializer
+        return ProductSerializer
+
     def get_queryset(self):
+        if self.action == 'list':
+            # Slim query for list: only fetch what ProductListSerializer needs.
+            # - No variants prefetch (not serialized on list)
+            # - No product_type tree (not serialized on list)
+            # - Only images prefetch for primary_image field
+            return (
+                Product.objects
+                .filter(is_active=True)
+                .select_related('category')
+                .prefetch_related(
+                    Prefetch(
+                        'images',
+                        queryset=ProductImage.objects.only(
+                            'id', 'product_id', 'image', 'is_primary', 'position'
+                        ),
+                    ),
+                )
+                .annotate(
+                    review_count=Count('reviews'),
+                    average_rating=Avg('reviews__rating'),
+                )
+            )
+        # Full query for retrieve/create/update: all nested relations needed.
         return (
             Product.objects
+            .filter(is_active=True)
             .select_related('category', 'product_type', 'collection')
             .prefetch_related(
-                'images',
-                'variants__attribute_values__attribute_type',
-                'variants__images',
+                Prefetch(
+                    'images',
+                    queryset=ProductImage.objects.only(
+                        'id', 'product_id', 'image', 'alt_text', 'is_primary',
+                        'position', 'variant_id', 'upload_status',
+                    ),
+                ),
+                Prefetch(
+                    'variants',
+                    # select_related('product') is required so variant.price
+                    # doesn't lazy-load the parent product when price_override is None.
+                    queryset=ProductVariant.objects.select_related('product').prefetch_related(
+                        'attribute_values__attribute_type',
+                        Prefetch(
+                            'images',
+                            queryset=ProductImage.objects.only(
+                                'id', 'product_id', 'image', 'alt_text',
+                                'is_primary', 'position', 'variant_id', 'upload_status',
+                            ),
+                        ),
+                    ),
+                ),
                 'promotions',
+                'product_type__attribute_types__values',
             )
             .annotate(
                 review_count=Count('reviews'),
                 average_rating=Avg('reviews__rating'),
             )
-            .all()
         )
 
     def get_serializer_context(self):
@@ -270,6 +374,10 @@ class ProductVariantViewSet(ModelViewSet):
         return (
             ProductVariant.objects
             .filter(product_id=self.kwargs['product_pk'])
+            # select_related('product') is critical: the variant.price property
+            # falls back to self.product.base_price when price_override is None,
+            # which triggers a lazy DB hit without this.
+            .select_related('product')
             .prefetch_related('attribute_values__attribute_type', 'images')
         )
 
@@ -382,6 +490,21 @@ class CustomerViewSet(ModelViewSet):
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(serializer.data)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ADDRESS
+# ─────────────────────────────────────────────────────────────────────────────
+
+class AddressViewSet(ModelViewSet):
+    serializer_class = AddressSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return Address.objects.filter(customer__user_id=self.request.user.id)
+
+    def get_serializer_context(self):
+        return {'user_id': self.request.user.id}
 
 
 # ─────────────────────────────────────────────────────────────────────────────

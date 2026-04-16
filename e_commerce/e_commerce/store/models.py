@@ -110,14 +110,18 @@ class Category(models.Model):
     upload_status = models.CharField(
         max_length=1, choices=UploadStatus.choices, default=UploadStatus.COMPLETE
     )
-    position = models.PositiveIntegerField(default=0, help_text="Display order within siblings")
-    is_active = models.BooleanField(default=True)
+    position = models.PositiveIntegerField(default=0, db_index=True, help_text="Display order within siblings")
+    is_active = models.BooleanField(default=True, db_index=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         verbose_name_plural = "Categories"
         ordering = ['position', 'name']
+        indexes = [
+            # Composite index for the tree query: filter by parent + is_active, order by position
+            models.Index(fields=['parent', 'is_active', 'position'], name='idx_category_parent_active_pos'),
+        ]
 
     def save(self, *args, **kwargs):
         if not self.slug:
@@ -125,8 +129,6 @@ class Category(models.Model):
         super().save(*args, **kwargs)
 
     def __str__(self):
-        if self.parent:
-            return f"{self.parent.name} → {self.name}"
         return self.name
 
     @property
