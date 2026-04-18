@@ -1,43 +1,37 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import CartItem from "@/components/cart/CartItem";
 import OrderSummary from "@/components/cart/OrderSummary";
 import EmptyCart from "@/components/cart/EmptyCart";
-
-// Mock cart data
-const MOCK_CART_ITEMS = [
-  {
-    id: 1,
-    name: "Slim Lyocell Trousers",
-    color: "Light Grey",
-    size: "10",
-    price: 50,
-    quantity: 1,
-    image: "https://images.unsplash.com/photo-1624371414361-e6e9ef358573?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80"
-  },
-  {
-    id: 4,
-    name: "Wireless Noise-Cancelling Headphones",
-    color: "Black",
-    size: "OS",
-    price: 249,
-    quantity: 1,
-    image: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80"
-  }
-];
+import { useCart } from "@/features/cart/hooks/useCart";
+import { DEFAULT_PLACEHOLDER } from "@/lib/constants";
 
 export default function CartPage() {
-  const [items, setItems] = useState(MOCK_CART_ITEMS);
+  const { cart, isLoading, totalItems, totalPrice } = useCart();
 
-  // Simple subtotal calculation
-  const subtotal = items.reduce((acc, item) => acc + (item.price * (item.quantity || 1)), 0);
-  const shipping = subtotal > 100 ? 0 : 15;
+  const items = cart?.items || [];
+  const subtotal = parseFloat(totalPrice) || 0;
+  const shipping = subtotal > 100 || subtotal === 0 ? 0 : 15;
   const tax = Math.round(subtotal * 0.08); // 8% tax mock
 
   const isEmpty = items.length === 0;
+
+  if (isLoading) {
+    return (
+      <div className="bg-white dark:bg-neutral-900 min-h-screen transition-colors duration-300">
+        <Navbar />
+        <main className="max-w-[85rem] px-4 py-10 sm:px-6 lg:px-8 lg:py-14 mx-auto min-h-[50vh] flex justify-center items-center">
+            <div className="animate-spin inline-block size-8 border-[3px] border-current border-t-transparent text-blue-600 rounded-full" role="status" aria-label="loading">
+              <span className="sr-only">Loading...</span>
+            </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
 
   return (
     <div className="bg-white dark:bg-neutral-900 min-h-screen transition-colors duration-300">
@@ -55,19 +49,23 @@ export default function CartPage() {
             <div className="grid lg:grid-cols-3 gap-8 lg:gap-12 items-start">
               {/* Cart Items List */}
               <div className="lg:col-span-2 space-y-2">
-                {items.map((item) => (
-                  <CartItem key={item.id} item={item} />
-                ))}
-                
-                {/* Clear Cart Mock button for testing */}
-                <div className="pt-4">
-                  <button 
-                    onClick={() => setItems([])}
-                    className="text-sm text-gray-500 hover:text-red-600 dark:text-neutral-500 dark:hover:text-red-500 flex items-center gap-1 transition-colors"
-                  >
-                    Clear shopping cart
-                  </button>
-                </div>
+                {items.map((cartItem) => {
+                  const product = cartItem.product || {};
+                  
+                  // Defensive extracting of nested fields based on common DRF output 
+                  const mappedItem = {
+                    id: cartItem.id, // The CartItem ID! Crucial for update/remove
+                    productId: product.id,
+                    name: product.title || "Unknown Product",
+                    color: cartItem.variant?.attribute_values?.find(v => v.attribute_type?.name === "Color")?.value || "Default",
+                    size: cartItem.variant?.attribute_values?.find(v => v.attribute_type?.name === "Size")?.value || "OS",
+                    price: cartItem.total_price || product.base_price || 0,
+                    quantity: cartItem.quantity,
+                    image: product.images?.find(i => i.is_primary)?.image_url || product.images?.[0]?.image_url || DEFAULT_PLACEHOLDER
+                  };
+
+                  return <CartItem key={cartItem.id} item={mappedItem} />
+                })}
               </div>
 
               {/* Sidebar: Order Summary */}

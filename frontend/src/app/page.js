@@ -27,7 +27,7 @@ export default function Home() {
         
         <TopProducts />
         
-        <BrandGrid />
+        {/* <BrandGrid /> */}
         
         <TrustBadges />
       </main>

@@ -4,12 +4,18 @@ from django.contrib import admin
 from django.conf import settings
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models
+from cloudinary.models import CloudinaryField
 from django.db.models import UniqueConstraint
 from django.utils.text import slugify
 
 from uuid import uuid4
 
-from store.validators import validate_file_size
+from .validators import validate_file_size
+
+class UploadStatus(models.TextChoices):
+    PENDING = 'P', 'Pending'
+    COMPLETE = 'C', 'Complete'
+    FAILED = 'F', 'Failed'
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -58,7 +64,10 @@ class Collection(models.Model):
     title = models.CharField(max_length=255)
     slug = models.SlugField(unique=True, blank=True)
     description = models.TextField(blank=True)
-    image = models.ImageField(upload_to='collections/', blank=True, null=True)
+    image = CloudinaryField('image', folder='collections', blank=True, null=True)
+    upload_status = models.CharField(
+        max_length=1, choices=UploadStatus.choices, default=UploadStatus.COMPLETE
+    )
     is_active = models.BooleanField(default=True)
     featured_product = models.ForeignKey(
         'Product',
@@ -97,15 +106,22 @@ class Category(models.Model):
         blank=True,
         related_name='children',
     )
-    image = models.ImageField(upload_to='categories/', blank=True, null=True)
-    position = models.PositiveIntegerField(default=0, help_text="Display order within siblings")
-    is_active = models.BooleanField(default=True)
+    image = CloudinaryField('image', folder='categories', blank=True, null=True)
+    upload_status = models.CharField(
+        max_length=1, choices=UploadStatus.choices, default=UploadStatus.COMPLETE
+    )
+    position = models.PositiveIntegerField(default=0, db_index=True, help_text="Display order within siblings")
+    is_active = models.BooleanField(default=True, db_index=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         verbose_name_plural = "Categories"
         ordering = ['position', 'name']
+        indexes = [
+            # Composite index for the tree query: filter by parent + is_active, order by position
+            models.Index(fields=['parent', 'is_active', 'position'], name='idx_category_parent_active_pos'),
+        ]
 
     def save(self, *args, **kwargs):
         if not self.slug:
@@ -113,8 +129,6 @@ class Category(models.Model):
         super().save(*args, **kwargs)
 
     def __str__(self):
-        if self.parent:
-            return f"{self.parent.name} → {self.name}"
         return self.name
 
     @property
@@ -375,11 +389,11 @@ class ProductImage(models.Model):
         blank=True,
         related_name='images',
     )
-    image = models.ImageField(
-        upload_to='store/images',
-        validators=[validate_file_size],
-    )
+    image = CloudinaryField('image', folder='store/images')
     alt_text = models.CharField(max_length=255, blank=True)
+    upload_status = models.CharField(
+        max_length=1, choices=UploadStatus.choices, default=UploadStatus.COMPLETE
+    )
     position = models.PositiveIntegerField(default=0)
     is_primary = models.BooleanField(default=False)
 

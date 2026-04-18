@@ -5,6 +5,7 @@ from rest_framework import serializers
 
 from .signals.signals import order_created
 from .models import (
+    Address,
     AttributeType,
     AttributeValue,
     Cart,
@@ -33,15 +34,50 @@ class CategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = Category
         fields = [
-            'id', 'name', 'slug', 'description', 'image',
+            'id', 'name', 'slug', 'description', 'image_url',
             'parent', 'position', 'is_active', 'children', 'product_count',
         ]
         read_only_fields = ['slug']
 
+    image_url = serializers.SerializerMethodField()
+
+    def get_image_url(self, obj):
+        if obj.image:
+            return obj.image.url
+        return None
+
     def get_children(self, obj):
-        """Return direct children (one level deep for list views)."""
-        children = obj.children.filter(is_active=True).order_by('position', 'name')
+        """Return direct children (one level deep for list views).
+
+        IMPORTANT: use .all() on the prefetch cache, then filter in Python.
+        Calling .filter() on the related manager bypasses prefetch_related
+        and fires a new DB query for every category (N+1).
+        """
+        children = sorted(
+            [c for c in obj.children.all() if c.is_active],
+            key=lambda c: (c.position, c.name),
+        )
         return SimpleCategorySerializer(children, many=True).data
+
+    def create(self, validated_data):
+        import os, uuid
+        from django.conf import settings
+        from .tasks import upload_image_to_cloudinary_task
+
+        image_file = validated_data.pop('image', None)
+        instance = Category.objects.create(upload_status='P', **validated_data)
+
+        if image_file:
+            tmp_dir = os.path.join(settings.BASE_DIR, 'tmp_uploads')
+            os.makedirs(tmp_dir, exist_ok=True)
+            ext = os.path.splitext(image_file.name)[1]
+            tmp_path = os.path.join(tmp_dir, f"{uuid.uuid4()}{ext}")
+            with open(tmp_path, 'wb') as f:
+                for chunk in image_file.chunks():
+                    f.write(chunk)
+            upload_image_to_cloudinary_task.delay('store', 'Category', instance.id, 'image', tmp_path)
+
+        return instance
 
 
 class SimpleCategorySerializer(serializers.ModelSerializer):
@@ -59,8 +95,35 @@ class CollectionSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Collection
-        fields = ['id', 'title', 'slug', 'description', 'image', 'is_active', 'products_count']
+        fields = ['id', 'title', 'slug', 'description', 'image_url', 'is_active', 'products_count']
         read_only_fields = ['slug']
+
+    image_url = serializers.SerializerMethodField()
+
+    def get_image_url(self, obj):
+        if obj.image:
+            return obj.image.url
+        return None
+
+    def create(self, validated_data):
+        import os, uuid
+        from django.conf import settings
+        from .tasks import upload_image_to_cloudinary_task
+
+        image_file = validated_data.pop('image', None)
+        instance = Collection.objects.create(upload_status='P', **validated_data)
+
+        if image_file:
+            tmp_dir = os.path.join(settings.BASE_DIR, 'tmp_uploads')
+            os.makedirs(tmp_dir, exist_ok=True)
+            ext = os.path.splitext(image_file.name)[1]
+            tmp_path = os.path.join(tmp_dir, f"{uuid.uuid4()}{ext}")
+            with open(tmp_path, 'wb') as f:
+                for chunk in image_file.chunks():
+                    f.write(chunk)
+            upload_image_to_cloudinary_task.delay('store', 'Collection', instance.id, 'image', tmp_path)
+
+        return instance
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -101,12 +164,54 @@ class ProductTypeSerializer(serializers.ModelSerializer):
 
 class ProductImageSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
+        import os
+        import uuid
+        from django.conf import settings
+        from .tasks import upload_image_to_cloudinary_task
+
         product_id = self.context['product_id']
-        return ProductImage.objects.create(product_id=product_id, **validated_data)
+        image_file = validated_data.pop('image', None)
+        
+        # Create empty/placeholder ProductImage with PENDING status
+        instance = ProductImage.objects.create(
+            product_id=product_id, 
+            upload_status='P', 
+            **validated_data
+        )
+
+        if image_file:
+            tmp_dir = os.path.join(settings.BASE_DIR, 'tmp_uploads')
+            os.makedirs(tmp_dir, exist_ok=True)
+            
+            ext = os.path.splitext(image_file.name)[1]
+            tmp_path = os.path.join(tmp_dir, f"{uuid.uuid4()}{ext}")
+            
+            with open(tmp_path, 'wb') as f:
+                for chunk in image_file.chunks():
+                    f.write(chunk)
+            
+            # Fire Async Celery Task
+            upload_image_to_cloudinary_task.delay(
+                app_label='store',
+                model_name='ProductImage',
+                object_id=instance.id,
+                field_name='image',
+                temp_file_path=tmp_path
+            )
+
+        return instance
 
     class Meta:
         model = ProductImage
-        fields = ['id', 'image', 'alt_text', 'position', 'is_primary', 'variant']
+        fields = ['id', 'image', 'image_url', 'alt_text', 'position', 'is_primary', 'variant', 'upload_status']
+
+    image_url = serializers.SerializerMethodField()
+    image = serializers.ImageField(write_only=True, required=False)
+
+    def get_image_url(self, obj):
+        if obj.image:
+            return obj.image.url
+        return None
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -199,6 +304,53 @@ class SimpleProductSerializer(serializers.ModelSerializer):
         fields = ['id', 'title', 'base_price', 'slug']
 
 
+class ProductListSerializer(serializers.ModelSerializer):
+    """
+    Lightweight serializer for product list/search endpoints.
+
+    Only includes the fields that list views (TrendingGrid, Shop page, Category
+    page, etc.) actually render. Avoids serializing the full product-type tree,
+    all variants, and all images that the full ProductSerializer includes.
+
+    When the frontend needs individual product detail it calls
+    /api/store/products/<id>/ which still uses the full ProductSerializer.
+    """
+    primary_image = serializers.SerializerMethodField()
+    category_name = serializers.CharField(source='category.name', read_only=True, default=None)
+    review_count = serializers.IntegerField(read_only=True)
+    average_rating = serializers.DecimalField(
+        max_digits=3, decimal_places=2, read_only=True
+    )
+    price_with_tax = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Product
+        fields = [
+            'id', 'title', 'slug', 'brand',
+            'base_price', 'price_with_tax',
+            'is_featured', 'is_active',
+            'primary_image',
+            'category_name',
+            'review_count', 'average_rating',
+        ]
+
+    def get_primary_image(self, obj):
+        """
+        Return only the URL of the first/primary image.
+        Avoids serializing every image with all its fields.
+        """
+        images = obj.images.all()
+        primary = next((img for img in images if img.is_primary), None)
+        if primary is None and images:
+            primary = images[0]
+        if primary and primary.image:
+            return primary.image.url
+        return None
+
+    def get_price_with_tax(self, product: Product):
+        return product.base_price * Decimal('1.1')
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # REVIEW
 # ─────────────────────────────────────────────────────────────────────────────
@@ -243,16 +395,25 @@ class CartSerializer(serializers.ModelSerializer):
     total_price = serializers.SerializerMethodField()
     item_count = serializers.SerializerMethodField()
 
+    def _get_items(self, cart):
+        """Return the prefetched items list — avoids calling .all() twice."""
+        # cart.items.all() uses the prefetch cache set up in CartViewSet;
+        # calling it twice (once per SerializerMethodField) is wasteful.
+        # Cache the result on the cart instance so both methods share it.
+        if not hasattr(cart, '_cached_items'):
+            cart._cached_items = list(cart.items.all())
+        return cart._cached_items
+
     def get_total_price(self, cart):
         return sum(
             item.quantity * (
                 item.variant.price if item.variant else item.product.base_price
             )
-            for item in cart.items.all()
+            for item in self._get_items(cart)
         )
 
     def get_item_count(self, cart):
-        return sum(item.quantity for item in cart.items.all())
+        return sum(item.quantity for item in self._get_items(cart))
 
     class Meta:
         model = Cart
@@ -321,6 +482,38 @@ class UpdateCartItemSerializer(serializers.ModelSerializer):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# ADDRESS
+# ─────────────────────────────────────────────────────────────────────────────
+
+class AddressSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Address
+        fields = [
+            'id', 'address_type', 'first_name', 'last_name',
+            'street', 'city', 'state', 'country', 'postal_code', 'phone', 'is_default'
+        ]
+
+    def create(self, validated_data):
+        customer = Customer.objects.get(user_id=self.context['user_id'])
+        is_default = validated_data.get('is_default', False)
+        
+        if is_default:
+            # Unset other default addresses for this customer
+            Address.objects.filter(customer=customer, is_default=True).update(is_default=False)
+            
+        return Address.objects.create(customer=customer, **validated_data)
+
+    def update(self, instance, validated_data):
+        is_default = validated_data.get('is_default', instance.is_default)
+        
+        if is_default and not instance.is_default:
+            # Unset other default addresses for this customer
+            Address.objects.filter(customer=instance.customer, is_default=True).update(is_default=False)
+            
+        return super().update(instance, validated_data)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # CUSTOMER
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -350,12 +543,13 @@ class OrderItemSerializer(serializers.ModelSerializer):
 
 class OrderSerializer(serializers.ModelSerializer):
     items = OrderItemSerializer(many=True)
+    shipping_address = AddressSerializer()
 
     class Meta:
         model = Order
         fields = [
             'id', 'customer', 'placed_at', 'payment_status',
-            'fulfillment_status', 'items',
+            'fulfillment_status', 'items', 'shipping_address'
         ]
 
 
@@ -367,6 +561,7 @@ class UpdateOrderSerializer(serializers.ModelSerializer):
 
 class CreateOrderSerializer(serializers.Serializer):
     cart_id = serializers.UUIDField()
+    shipping_address_id = serializers.IntegerField()
 
     def validate_cart_id(self, cart_id):
         if not Cart.objects.filter(pk=cart_id).exists():
@@ -375,12 +570,23 @@ class CreateOrderSerializer(serializers.Serializer):
             raise serializers.ValidationError('The cart is empty.')
         return cart_id
 
+    def validate_shipping_address_id(self, value):
+        if not Address.objects.filter(pk=value).exists():
+            raise serializers.ValidationError('Invalid address ID.')
+        return value
+
     def save(self, **kwargs):
         with transaction.atomic():
             cart_id = self.validated_data['cart_id']
+            shipping_address_id = self.validated_data['shipping_address_id']
 
             customer = Customer.objects.get(user_id=self.context['user_id'])
-            order = Order.objects.create(customer=customer)
+            shipping_address = Address.objects.get(pk=shipping_address_id, customer=customer)
+            
+            order = Order.objects.create(
+                customer=customer,
+                shipping_address=shipping_address
+            )
 
             cart_items = (
                 CartItem.objects
@@ -392,7 +598,9 @@ class CreateOrderSerializer(serializers.Serializer):
             order_items = []
             for item in cart_items:
                 variant = item.variant
-                price = variant.price if variant else item.product.base_price
+                # Use variant price if it exists, otherwise base_price. 
+                # This ensures the backend calculates the price.
+                price = variant.price if variant and variant.price else item.product.base_price
 
                 # Build a snapshot of the variant attributes at purchase time
                 snapshot = {}

@@ -1,5 +1,5 @@
 from django.contrib import admin, messages
-from django.db.models import Count, Avg
+from django.db.models import Count, Avg, Sum, Subquery, OuterRef
 from django.db.models.query import QuerySet
 from django.utils.html import format_html, urlencode
 from django.urls import reverse
@@ -48,8 +48,13 @@ class CategoryAdmin(admin.ModelAdmin):
             + '?'
             + urlencode({'category__id': str(category.id)})
         )
-        count = category.products.count()
+        count = category.annotated_product_count
         return format_html('<a href="{}">{} Products</a>', url, count)
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).annotate(
+            annotated_product_count=Count('products')
+        )
 
     product_count.short_description = 'Products'
 
@@ -185,25 +190,49 @@ class ProductAdmin(admin.ModelAdmin):
     inlines = [ProductVariantInline, ProductImageInline]
     list_display = ['title', 'brand', 'category', 'base_price', 'is_active', 'is_featured', 'inventory_status', 'review_avg']
     list_editable = ['base_price', 'is_active', 'is_featured']
-    list_filter = ['category', 'product_type', 'is_active', 'is_featured', 'collection']
+    list_filter = [
+        ('category', admin.RelatedOnlyFieldListFilter),
+        'product_type',
+        'is_active',
+        'is_featured',
+        'collection',
+    ]
     list_per_page = 10
-    list_select_related = ['category', 'product_type', 'collection']
+    list_select_related = ['category__parent__parent__parent', 'product_type', 'collection']
     search_fields = ['title', 'brand', 'slug']
     filter_horizontal = ['promotions']
 
-    @admin.display(description='Inventory')
+    @admin.display(description='Inventory', ordering='annotated_inventory')
     def inventory_status(self, product):
-        total = sum(v.inventory for v in product.variants.all())
+        total = product.annotated_inventory or 0
         if total == 0:
-            return format_html('<span style="color:red;font-weight:bold;">Out of Stock</span>')
+            return format_html('<span style="color:red;font-weight:bold;">{}</span>', "Out of Stock")
         if total < 10:
             return format_html('<span style="color:orange;font-weight:bold;">Low ({})</span>', total)
         return format_html('<span style="color:green;">{}</span>', total)
 
-    @admin.display(description='Avg Rating')
+    @admin.display(description='Avg Rating', ordering='annotated_avg_rating')
     def review_avg(self, product):
-        avg = product.reviews.aggregate(a=Avg('rating'))['a']
+        avg = product.annotated_avg_rating
         return f"{avg:.1f} ★" if avg else '—'
+
+    def get_queryset(self, request):
+        inventory = models.ProductVariant.objects.filter(
+            product=OuterRef('pk')
+        ).values('product').annotate(
+            total=Sum('inventory')
+        ).values('total')
+
+        avg_rating = models.Review.objects.filter(
+            product=OuterRef('pk')
+        ).values('product').annotate(
+            avg=Avg('rating')
+        ).values('avg')
+
+        return super().get_queryset(request).annotate(
+            annotated_inventory=Subquery(inventory),
+            annotated_avg_rating=Subquery(avg_rating),
+        ).prefetch_related('promotions')
 
     @admin.action(description='Clear inventory for selected products')
     def clear_inventory(self, request, queryset):
@@ -321,7 +350,7 @@ class ReviewAdmin(admin.ModelAdmin):
     list_display = ['product', 'rating', 'name', 'title', 'is_verified_purchase', 'date']
     list_filter = ['rating', 'is_verified_purchase', 'date']
     list_per_page = 25
-    list_select_related = ['product', 'customer']
+    list_select_related = ['product', 'customer__user']
     search_fields = ['product__title', 'name', 'title']
     readonly_fields = ['date', 'is_verified_purchase']
 

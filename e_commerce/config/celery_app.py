@@ -26,3 +26,12 @@ def config_loggers(*args, **kwargs):
 
 # Load task modules from all registered Django app configs.
 app.autodiscover_tasks()
+
+from celery.schedules import crontab
+
+app.conf.beat_schedule = {
+    'sweep-stale-temp-files-every-midnight': {
+        'task': 'e_commerce.store.tasks.sweep_stale_temp_files_task',
+        'schedule': crontab(minute=0, hour=0),  # Runs at midnight every day
+    },
+}
