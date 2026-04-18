@@ -83,6 +83,7 @@ class CategoryViewSet(ModelViewSet):
     """
     serializer_class = CategorySerializer
     permission_classes = [IsAdminOrReadOnly]
+    authentication_classes = []
     filter_backends = [SearchFilter]
     search_fields = ['name']
 
@@ -118,6 +119,7 @@ class CategoryProductListView(generics.ListAPIView):
     its descendant categories (sub-categories at any depth).
     """
     serializer_class = ProductSerializer
+    authentication_classes = []
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_class = ProductFilter
     pagination_class = DefaultPagination
@@ -191,6 +193,7 @@ class CollectionViewSet(ModelViewSet):
     queryset = Collection.objects.annotate(products_count=Count('products')).all()
     serializer_class = CollectionSerializer
     permission_classes = [IsAdminOrReadOnly]
+    authentication_classes = []
     filter_backends = [SearchFilter]
     search_fields = ['title']
 
@@ -224,6 +227,7 @@ class CollectionViewSet(ModelViewSet):
 class ProductTypeViewSet(ModelViewSet):
     serializer_class = ProductTypeSerializer
     permission_classes = [IsAdminOrReadOnly]
+    authentication_classes = []
     filter_backends = [SearchFilter]
     search_fields = ['name']
 
@@ -236,6 +240,7 @@ class ProductTypeViewSet(ModelViewSet):
 class AttributeTypeViewSet(ModelViewSet):
     serializer_class = AttributeTypeSerializer
     permission_classes = [IsAdminOrReadOnly]
+    authentication_classes = []
     filter_backends = [SearchFilter]
     search_fields = ['name']
 
@@ -250,6 +255,7 @@ class AttributeTypeViewSet(ModelViewSet):
 class AttributeValueViewSet(ModelViewSet):
     serializer_class = AttributeValueSerializer
     permission_classes = [IsAdminOrReadOnly]
+    authentication_classes = []
     filter_backends = [DjangoFilterBackend, SearchFilter]
     search_fields = ['value']
 
@@ -275,6 +281,7 @@ class ProductViewSet(ModelViewSet):
     filterset_class = ProductFilter
     pagination_class = DefaultPagination
     permission_classes = [IsAdminOrReadOnly]
+    authentication_classes = []
     search_fields = ['title', 'description', 'brand']
     ordering_fields = ['base_price', 'created_at', 'title']
 
@@ -367,6 +374,7 @@ class ProductViewSet(ModelViewSet):
 class ProductVariantViewSet(ModelViewSet):
     serializer_class = ProductVariantSerializer
     permission_classes = [IsAdminOrReadOnly]
+    authentication_classes = []
     filter_backends = [DjangoFilterBackend]
     filterset_class = ProductVariantFilter
 
@@ -391,6 +399,7 @@ class ProductVariantViewSet(ModelViewSet):
 
 class ProductImageViewSet(ModelViewSet):
     serializer_class = ProductImageSerializer
+    authentication_classes = []
 
     def get_serializer_context(self):
         return {'product_id': self.kwargs['product_pk']}
@@ -443,6 +452,8 @@ class CartViewSet(
         'items__variant__attribute_values__attribute_type',
     ).all()
     serializer_class = CartSerializer
+    authentication_classes = []
+    permission_classes = [AllowAny]
 
 
 class CartItemViewSet(ModelViewSet):
@@ -454,6 +465,9 @@ class CartItemViewSet(ModelViewSet):
         elif self.request.method == 'PATCH':
             return UpdateCartItemSerializer
         return CartItemSerializer
+
+    authentication_classes = []
+    permission_classes = [AllowAny]
 
     def get_serializer_context(self):
         return {'cart_id': self.kwargs['cart_pk']}

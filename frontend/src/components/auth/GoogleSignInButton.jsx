@@ -2,6 +2,7 @@
 
 import { useGoogleLogin } from "@react-oauth/google";
 import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useRouter, useSearchParams } from "next/navigation";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/store/useAuthStore";
@@ -10,6 +11,7 @@ import { toast } from "sonner";
 export default function GoogleSignInButton() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const queryClient = useQueryClient();
   const setUser = useAuthStore((state) => state.setUser);
   const [loading, setLoading] = useState(false);
 
@@ -26,6 +28,7 @@ export default function GoogleSignInButton() {
 
         // 2. Success! update global state
         setUser(response.data.user);
+        queryClient.invalidateQueries({ queryKey: ["auth-user"] });
         toast.success("Signed in with Google successfully!");
 
         // 3. Redirect to the original destination
@@ -48,7 +51,8 @@ export default function GoogleSignInButton() {
     <button
       onClick={() => googleLogin()}
       disabled={loading}
-      className="w-full flex items-center justify-center gap-2 bg-white border border-gray-300 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-50 disabled:opacity-50 transition"
+      type="button"
+      className="w-full py-3 px-4 inline-flex justify-center items-center gap-x-2 text-sm font-medium rounded-lg border border-gray-200 bg-white text-gray-800 shadow-sm hover:bg-gray-50 focus:outline-none focus:bg-gray-50 disabled:opacity-50 disabled:pointer-events-none transition-all"
     >
       <svg className="w-5 h-5" viewBox="0 0 24 24">
         <path

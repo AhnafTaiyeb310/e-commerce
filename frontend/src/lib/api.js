@@ -18,6 +18,80 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+// --- SILENT REFRESH LOGIC ---
+let isRefreshing = false;
+let failedQueue = [];
+
+const processQueue = (error, token = null) => {
+  failedQueue.forEach((prom) => {
+    if (error) {
+      prom.reject(error);
+    } else {
+      prom.resolve(token);
+    }
+  });
+  failedQueue = [];
+};
+
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config;
+
+    // Determine if we should attempt a refresh:
+    // 1. It must be a 401 error
+    // 2. We haven't already retried this specific request
+    // 3. It's not the actual login or refresh endpoint (to avoid infinite loops)
+    if (
+      error.response?.status === 401 &&
+      !originalRequest._retry &&
+      !originalRequest.url.includes("/api/auth/login/") &&
+      !originalRequest.url.includes("/api/auth/token/refresh/")
+    ) {
+      if (isRefreshing) {
+        // If a refresh is already in progress, wait for it to complete
+        return new Promise((resolve, reject) => {
+          failedQueue.push({ resolve, reject });
+        })
+          .then(() => {
+            return api(originalRequest);
+          })
+          .catch((err) => {
+            return Promise.reject(err);
+          });
+      }
+
+      originalRequest._retry = true;
+      isRefreshing = true;
+
+      try {
+        // Attempt to refresh the session via cookies
+        await axios.post(
+          `${api.defaults.baseURL}/api/auth/token/refresh/`,
+          {},
+          { withCredentials: true }
+        );
+
+        isRefreshing = false;
+        processQueue(null);
+
+        // Retry the original request that failed
+        return api(originalRequest);
+      } catch (refreshError) {
+        isRefreshing = false;
+        processQueue(refreshError);
+
+        // If refresh fails, it means the session is truly dead
+        // You might want to trigger a logout in your store here
+        // but for now we just reject the error
+        return Promise.reject(refreshError);
+      }
+    }
+
+    return Promise.reject(error);
+  }
+);
+
 // Helper for Fetching products
 export const fetchProducts = async (params = {}) => {
   try {
