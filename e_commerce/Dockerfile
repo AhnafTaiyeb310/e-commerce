@@ -70,6 +70,7 @@ RUN mkdir -p ${APP_HOME}/e_commerce/media \
 
 # Activate virtual environment
 ENV PATH="/app/.venv/bin:$PATH"
+ENV PYTHONPATH="/app"
 
 USER django
 

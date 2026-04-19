@@ -5,6 +5,12 @@ set -o pipefail
 set -o nounset
 
 
+echo "--- STARTUP DIAGNOSTICS ---"
+echo "PYTHONPATH: $PYTHONPATH"
+echo "DJANGO_SETTINGS_MODULE: ${DJANGO_SETTINGS_MODULE:-UNSET}"
+python -m django --version
+echo "---------------------------"
+
 python /app/manage.py collectstatic --noinput --settings=config.settings.production
 
 exec gunicorn config.asgi --bind 0.0.0.0:${PORT:-5000} --chdir=/app -k uvicorn_worker.UvicornWorker
