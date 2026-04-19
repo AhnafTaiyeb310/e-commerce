@@ -33,7 +33,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 # =========================
 # RUNTIME STAGE
 # =========================
-FROM python:3.12-slim-bookworm AS python-run-stage
+FROM python:3.14-slim-bookworm AS python-run-stage
 
 ARG APP_HOME=/app
 WORKDIR ${APP_HOME}
