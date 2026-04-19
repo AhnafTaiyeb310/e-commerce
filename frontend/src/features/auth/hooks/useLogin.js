@@ -2,7 +2,7 @@
 
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/store/useAuthStore";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { loginRequest } from "@/features/auth/api/authApi"
 import { useSearchParams, useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -11,12 +11,14 @@ export const useLogin = () => {
   const setUser = useAuthStore((state) => state.setUser);
   const searchParams = useSearchParams();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const redirectTo = searchParams.get('redirect') || '/';
 
   return useMutation({
     mutationFn: loginRequest,
     onSuccess: (data) => {
       setUser(data.user);
+      queryClient.invalidateQueries({ queryKey: ["auth-user"] });
       toast.success("Welcome back!.")
       router.push(redirectTo);
     },

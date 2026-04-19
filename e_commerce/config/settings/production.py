@@ -75,7 +75,7 @@ SECURE_CONTENT_TYPE_NOSNIFF = env.bool(
 # ------------------------
 STORAGES = {
     "default": {
-        "BACKEND": "django.core.files.storage.FileSystemStorage",
+        "BACKEND": "cloudinary_storage.storage.MediaCloudinaryStorage",
     },
     "staticfiles": {
         "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
@@ -181,19 +181,14 @@ sentry_sdk.init(
 # -------------------------------------------------------------------------------
 # Tools that generate code samples can use SERVERS to point to the correct domain
 SPECTACULAR_SETTINGS["SERVERS"] = [
-    {"url": "https://example.com", "description": "Production server"},
+    {"url": f"https://{domain}", "description": "Production server"}
+    for domain in ALLOWED_HOSTS
 ]
 # Your stuff...
 # ------------------------------------------------------------------------------
 
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-]
+CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS", default=[])
 
-CSRF_TRUSTED_ORIGINS = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-]
+CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS", default=[])
 
 FRONTEND_URL = env("FRONTEND_URL", default="https://your-production-app.com")

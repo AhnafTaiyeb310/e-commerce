@@ -271,6 +271,7 @@ EMAIL_BACKEND = env(
 )
 # https://docs.djangoproject.com/en/dev/ref/settings/#email-timeout
 EMAIL_TIMEOUT = 5
+DJANGO_DEFAULT_FROM_EMAIL = 'e-commerce<ahnaf.taiyeb@gmail.com>'
 
 # ADMIN
 # ------------------------------------------------------------------------------
@@ -361,6 +362,10 @@ ACCOUNT_SIGNUP_FIELDS = ["email*", "name*"]
 ACCOUNT_USER_MODEL_USERNAME_FIELD = None
 # https://docs.allauth.org/en/latest/account/configuration.html
 ACCOUNT_EMAIL_VERIFICATION = "mandatory"
+# https://docs.allauth.org/en/latest/account/configuration.html
+ACCOUNT_CONFIRM_EMAIL_ON_GET = True
+# https://docs.allauth.org/en/latest/account/configuration.html
+ACCOUNT_LOGIN_ON_EMAIL_CONFIRMATION = True
 # https://docs.allauth.org/en/latest/account/configuration.html
 ACCOUNT_ADAPTER = "e_commerce.users.adapters.AccountAdapter"
 # https://docs.allauth.org/en/latest/account/forms.html

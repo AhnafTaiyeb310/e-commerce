@@ -3,10 +3,23 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import ProductAccordion from "./ProductAccordion";
+import { useCart } from "@/features/cart/hooks/useCart";
+import { toast } from "sonner";
 
 export default function ProductInfo({ product }) {
+  const { addToCart, isAdding } = useCart();
   const [selectedColor, setSelectedColor] = useState("Light Grey");
   const [selectedSize, setSelectedSize] = useState("10");
+
+  const handleAddToCart = async () => {
+    if (!product) return;
+    try {
+      await addToCart(product.id, 1);
+      toast.success(`${product.name} added to cart!`);
+    } catch (error) {
+      toast.error("Failed to add item to cart. Please try again.");
+    }
+  };
   
   if (!product) return null;
 
@@ -116,8 +129,20 @@ export default function ProductInfo({ product }) {
 
       {/* Add To Cart */}
       <div className="mb-8 flex gap-x-3">
-        <button type="button" className="w-full py-3 px-4 inline-flex justify-center flex-1 items-center gap-x-2 text-sm font-medium rounded-lg border border-transparent bg-blue-600 text-white hover:bg-blue-700 focus:outline-none focus:bg-blue-700 disabled:opacity-50 disabled:pointer-events-none">
-          Add to cart
+        <button 
+          onClick={handleAddToCart}
+          disabled={isAdding}
+          type="button" 
+          className="w-full py-3 px-4 inline-flex justify-center flex-1 items-center gap-x-2 text-sm font-medium rounded-lg border border-transparent bg-blue-600 text-white hover:bg-blue-700 focus:outline-none focus:bg-blue-700 disabled:opacity-50 disabled:pointer-events-none transition-colors"
+        >
+          {isAdding ? (
+            <>
+              <span className="animate-spin inline-block size-4 border-[2px] border-current border-t-transparent text-white rounded-full" role="status" aria-label="loading"></span>
+              Adding...
+            </>
+          ) : (
+            "Add to cart"
+          )}
         </button>
         <button type="button" className="size-[46px] inline-flex justify-center items-center gap-x-2 text-sm font-medium rounded-lg border border-gray-200 bg-white text-gray-800 shadow-sm hover:bg-gray-50 focus:outline-none focus:bg-gray-50 disabled:opacity-50 disabled:pointer-events-none dark:bg-neutral-900 dark:border-neutral-700 dark:text-white dark:hover:bg-neutral-800 dark:focus:bg-neutral-800 border-none relative group">
           <div className="absolute inset-0 rounded-lg group-hover:bg-gray-100 dark:group-hover:bg-neutral-800 border border-gray-200 dark:border-neutral-700 pointer-events-none"></div>
@@ -145,15 +170,15 @@ export default function ProductInfo({ product }) {
 
       {/* Description Snippet */}
       <div className="mb-8">
-        <p className="text-gray-600 dark:text-neutral-400 mb-4">
-          Sink into pure, simple comfort the moment you step in the door. The {product.name} has a pared-back design for those who love the beautiful yet understated things in life.
-        </p>
-        <ul className="space-y-3 ms-5 list-disc text-gray-600 dark:text-neutral-400 marker:text-gray-400">
-          <li>Iconic, understated design.</li>
-          <li>Premium breathable upper.</li>
-          <li>Contoured footbed for extra support.</li>
-          <li>Eco-friendly packaging.</li>
-        </ul>
+        {product.description ? (
+          <div className="text-gray-600 dark:text-neutral-400 mb-4 whitespace-pre-wrap">
+            {product.description}
+          </div>
+        ) : (
+          <p className="text-gray-600 dark:text-neutral-400 mb-4">
+            No description available for this product.
+          </p>
+        )}
       </div>
 
       {/* Accordion Details */}
