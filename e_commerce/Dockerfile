@@ -1,89 +1,83 @@
-# define an alias for the specific python version used in this file.
-FROM ghcr.io/astral-sh/uv:python3.14-bookworm-slim AS python-build-stage
+# =========================
+# BUILD STAGE
+# =========================
+FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim AS python-build-stage
 
-ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy UV_PYTHON_DOWNLOADS=0
+ENV UV_COMPILE_BYTECODE=1 \
+    UV_LINK_MODE=copy \
+    UV_PYTHON_DOWNLOADS=0
 
 ARG APP_HOME=/app
-
 WORKDIR ${APP_HOME}
 
-# Install apt packages
+# Install build dependencies
 RUN apt-get update && apt-get install --no-install-recommends -y \
-  build-essential \
-  libpq-dev
+    build-essential \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
 
-# Requirements are installed here to ensure they will be cached.
+# Install dependencies (cached)
 RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=uv.lock,target=uv.lock \
     --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
     uv sync --locked --no-install-project --no-dev
 
+# Copy project files
 COPY . ${APP_HOME}
 
+# Install project
 RUN --mount=type=cache,target=/root/.cache/uv \
-    --mount=type=bind,source=uv.lock,target=uv.lock \
-    --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
     uv sync --locked --no-dev
 
-# Python 'run' stage
-FROM python:3.14-slim-bookworm AS python-run-stage
+
+# =========================
+# RUNTIME STAGE
+# =========================
+FROM python:3.12-slim-bookworm AS python-run-stage
 
 ARG APP_HOME=/app
-
 WORKDIR ${APP_HOME}
 
+# Create non-root user
 RUN addgroup --system django \
-  && adduser --system --ingroup django django
+    && adduser --system --ingroup django django
 
-# Install required system dependencies
+# Install runtime dependencies only
 RUN apt-get update && apt-get install --no-install-recommends -y \
-  libpq-dev \
-  gettext \
-  wait-for-it \
-  && apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false \
-  && rm -rf /var/lib/apt/lists/*
+    libpq5 \
+    gettext \
+    wait-for-it \
+    && rm -rf /var/lib/apt/lists/*
 
-# Copy scripts from their nested locations and set them up at the root of the file system
-# This makes it easier to reference them in Render as /start, /release, etc.
+# Copy entrypoint and scripts
 COPY --chown=django:django ./compose/production/django/entrypoint /entrypoint
-RUN sed -i 's/\r$//g' /entrypoint
-RUN chmod +x /entrypoint
-
 COPY --chown=django:django ./compose/production/django/start /start
-RUN sed -i 's/\r$//g' /start
-RUN chmod +x /start
-
 COPY --chown=django:django ./compose/production/django/release /release
-RUN sed -i 's/\r$//g' /release
-RUN chmod +x /release
-
 COPY --chown=django:django ./compose/production/django/celery/worker/start /start-celeryworker
-RUN sed -i 's/\r$//g' /start-celeryworker
-RUN chmod +x /start-celeryworker
-
 COPY --chown=django:django ./compose/production/django/celery/beat/start /start-celerybeat
-RUN sed -i 's/\r$//g' /start-celerybeat
-RUN chmod +x /start-celerybeat
-
 COPY --chown=django:django ./compose/production/django/celery/flower/start /start-flower
-RUN sed -i 's/\r$//g' /start-flower
-RUN chmod +x /start-flower
 
-# Copy the application from the builder
+# Fix line endings & permissions
+RUN sed -i 's/\r$//g' /entrypoint /start /release /start-celeryworker /start-celerybeat /start-flower \
+    && chmod +x /entrypoint /start /release /start-celeryworker /start-celerybeat /start-flower
+
+# Copy app from build stage
 COPY --from=python-build-stage --chown=django:django ${APP_HOME} ${APP_HOME}
 
-# Create media folder
-RUN mkdir -p ${APP_HOME}/e_commerce/media
-RUN chown django:django ${APP_HOME}
+# Ensure proper permissions
+RUN mkdir -p ${APP_HOME}/e_commerce/media \
+    && chown -R django:django ${APP_HOME}
 
-# Place executables in the environment
+# Activate virtual environment
 ENV PATH="/app/.venv/bin:$PATH"
 
 USER django
 
-# Compile translations
-RUN DATABASE_URL="" \
-  DJANGO_SETTINGS_MODULE="config.settings.test" \
-  python manage.py compilemessages
+# Compile translations (no DB dependency)
+RUN DATABASE_URL="postgres://localhost:5432/db" \
+    DJANGO_SETTINGS_MODULE=config.settings.production \
+    python manage.py compilemessages
 
+# Entrypoint + default command
 ENTRYPOINT ["/entrypoint"]
+CMD ["/start"]
