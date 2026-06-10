@@ -13,7 +13,10 @@ def main():
     
     # --- DIAGNOSTIC LOGS FOR PRODUCTION ---
     if "collectstatic" in sys.argv:
-        print(f"--- DEBUG: Loading settings from {settings_module} ---")
+        import django
+        print(f"--- DEBUG: Django Location: {django.__file__} ---")
+        print(f"--- DEBUG: Sys Path: {sys.path} ---")
+        print(f"--- DEBUG: Settings: {settings_module} ---")
     # --------------------------------------
 
     try:
